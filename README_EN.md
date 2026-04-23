@@ -7,7 +7,9 @@
 
 ## About
 
-NewsClipper is an automated news clipping tool designed for corporate PR and marketing professionals. It collects relevant news articles via the Naver News API, applies media tier filtering, merges similar articles, and classifies results by keyword relevance.
+NewsClipper is an automated news clipping tool designed for corporate PR and marketing professionals in South Korea. It collects **Korean-language news articles** via the Naver News API, applies media tier filtering, merges similar articles, and classifies results by keyword relevance.
+
+> **Note:** This program currently supports Korean news sources only, as it relies on the Naver News API which indexes Korean media outlets.
 
 ## Key Features
 
