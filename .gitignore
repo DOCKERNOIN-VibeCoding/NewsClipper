@@ -1,0 +1,10 @@
+venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+reports/
+config/settings.yaml
+.env
+*.zip
