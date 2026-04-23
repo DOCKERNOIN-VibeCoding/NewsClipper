@@ -1,0 +1,24 @@
+# ── NewsClipper 설정 템플릿 ──
+# 이 파일을 settings.yaml로 복사한 뒤 값을 채워주세요.
+
+api:
+  naver:
+    client_id: ""        # Naver API Client ID
+    client_secret: ""    # Naver API Client Secret
+  gemini:
+    api_key: ""          # Google Gemini API Key
+
+search:
+  industries: []         # 예: ["식품", "외식"]
+  keywords:
+    products: []         # 예: ["비비고", "비비고 군만두"]
+    company: []          # 예: ["제일제당", "CJ"]
+    competitors: []      # 예: ["오뚜기", "풀무원"]
+    industry_general: [] # 예: ["식품", "외식", "프랜차이즈"]
+
+schedule:
+  frequency: "daily"     # daily / weekly / monthly
+  range_days: 1
+
+dedup:
+  sensitivity_level: 3   # 1~5 (3이 기본값)
