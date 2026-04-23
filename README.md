@@ -1,3 +1,4 @@
+> 🇺🇸 [English Version](README_EN.md)
 
 # 📰 NewsClipper — AI 기반 뉴스 클리핑 & 미디어 모니터링
 
