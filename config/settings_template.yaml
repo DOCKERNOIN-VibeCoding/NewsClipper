@@ -17,8 +17,21 @@ search:
     industry_general: [] # 예: ["식품", "외식", "프랜차이즈"]
 
 schedule:
-  frequency: "daily"     # daily / weekly / monthly
-  range_days: 1
+  frequency: "weekly"    # daily / weekly / monthly
+  range_days: 7          # weekly에 어울리는 7일로 변경
 
 dedup:
   sensitivity_level: 3   # 1~5 (3이 기본값)
+
+# ── v2.0: AI 통합 분석 설정 ──
+ai:
+  enabled: true                      # false면 v1 방식(로컬 키워드 매칭)으로 동작
+  model: "gemini-2.5-flash"          # gemini-2.5-flash / gemini-2.5-flash-lite
+  batch_size: 5                      # 1회 API 호출당 분석 기사 수 (1~10 권장)
+  max_retries: 3                     # 호출 실패 시 재시도 횟수
+  timeout_sec: 30                    # 단일 호출 타임아웃 (초)
+
+  # AI 관련도 등급별 처리 정책
+  filter:
+    exclude_irrelevant: true         # irrelevant 등급 기사 제외
+    passing_to_collapsed: true       # passing 등급은 접힌 섹션으로
