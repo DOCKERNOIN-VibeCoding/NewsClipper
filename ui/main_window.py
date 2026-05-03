@@ -35,6 +35,22 @@ class MainWindow(ctk.CTk):
         self._build_left_panel()
         self._build_right_panel()
 
+        # ── 창 닫기 시 백그라운드 작업 안전하게 종료 ──
+        self._closing = False
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_close(self):
+        """X 버튼 클릭 시 호출. 백그라운드 작업이 자기 자신 정리하도록 플래그만 세팅."""
+        self._closing = True
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        # 강제 종료 (백그라운드 데몬 스레드도 정리됨)
+        import os
+        os._exit(0)
+
+
     # ══════════════════════════════════════
     #  왼쪽 패널
     # ══════════════════════════════════════
@@ -361,21 +377,33 @@ class MainWindow(ctk.CTk):
 
         pipeline = NewsPipeline(self.settings)
 
+        def safe_after(func, *args):
+            """창이 이미 파괴된 경우 무시하고, 살아있을 때만 UI 업데이트."""
+            if getattr(self, "_closing", False):
+                return
+            try:
+                self.after(0, func, *args)
+            except Exception:
+                pass
+
         def on_progress(step, total, message):
             progress = step / total
-            self.after(0, self._update_progress, progress, message)
+            safe_after(self._update_progress, progress, message)
 
         def on_log(message):
-            self.after(0, self._append_log, message)
+            safe_after(self._append_log, message)
 
         try:
             results = pipeline.run(
                 progress_callback=on_progress,
                 log_callback=on_log
             )
-            self.after(0, self._on_pipeline_complete, results)
+            safe_after(self._on_pipeline_complete, results)
         except Exception as e:
-            self.after(0, self._on_pipeline_error, str(e))
+            import traceback
+            traceback.print_exc()
+            safe_after(self._on_pipeline_error, str(e))
+
 
     def _update_progress(self, progress: float, message: str):
         self.progress_bar.set(progress)
@@ -409,37 +437,95 @@ class MainWindow(ctk.CTk):
         stats = results.get("stats", {})
 
         self._last_articles = articles
-        self._last_stats = stats        
+        self._last_stats = stats
 
-        # ── 통계 요약 ──
-        stats_frame = ctk.CTkFrame(self.result_area, fg_color=BG_WHITE, corner_radius=10)
-        stats_frame.pack(fill="x", padx=15, pady=(10, 15))
+        # ── 통계 요약 (1줄, 컴팩트) ──
+        stats_frame = ctk.CTkFrame(
+            self.result_area, fg_color=BG_WHITE,
+            corner_radius=8, height=56,  # 고정 높이로 컴팩트하게
+        )
+        stats_frame.pack(fill="x", padx=15, pady=(8, 6))
+        stats_frame.pack_propagate(False)  # 자식이 늘려도 높이 고정
 
         stats_inner = ctk.CTkFrame(stats_frame, fg_color="transparent")
-        stats_inner.pack(fill="x", padx=15, pady=12)
+        stats_inner.pack(fill="both", expand=True, padx=12, pady=4)
+
 
         stat_items = [
             ("수집", str(stats.get("total_collected", 0)) + "건"),
             ("매체필터", str(stats.get("after_media_filter", 0)) + "건"),
             ("중복병합", str(stats.get("after_dedup", 0)) + "건"),
+            ("AI필터", str(stats.get("after_ai_filter", 0)) + "건"),
             ("최종", str(stats.get("final_count", 0)) + "건"),
             ("제품", str(stats.get("product_count", 0)) + "건"),
             ("기업", str(stats.get("company_count", 0)) + "건"),
             ("경쟁사", str(stats.get("competitor_count", 0)) + "건"),
         ]
 
-
         for i, (label, value) in enumerate(stat_items):
             col = ctk.CTkFrame(stats_inner, fg_color="transparent")
-            col.pack(side="left", expand=True, fill="x")
+            col.pack(side="left", expand=True, fill="both")
 
-            ctk.CTkLabel(col, text=label, font=FONT_CAPTION, text_color=TEXT_SECONDARY).pack()
-            ctk.CTkLabel(col, text=value, font=FONT_BODY_BOLD, text_color=COBALT).pack()
+            ctk.CTkLabel(
+                col, text=label,
+                font=FONT_CAPTION, text_color=TEXT_SECONDARY
+            ).pack(pady=(2, 0))
+            ctk.CTkLabel(
+                col, text=value,
+                font=FONT_SMALL_BOLD, text_color=COBALT  # FONT_BODY_BOLD → FONT_SMALL_BOLD
+            ).pack(pady=(0, 2))
 
             if i < len(stat_items) - 1:
                 ctk.CTkFrame(stats_inner, fg_color="#E5E7EB", width=1).pack(
                     side="left", fill="y", padx=5, pady=5
                 )
+
+        # ── AI 분석 결과 카드 (v2.0 신규) ──
+        if stats.get("ai_enabled"):
+            ai_card = ctk.CTkFrame(
+                self.result_area,
+                fg_color=AI_SUMMARY_BG,
+                corner_radius=10,
+                border_width=1,
+                border_color=AI_SUMMARY_BORDER,
+            )
+            ai_card.pack(fill="x", padx=15, pady=(0, 12))
+
+            ai_inner = ctk.CTkFrame(ai_card, fg_color="transparent")
+            ai_inner.pack(fill="x", padx=15, pady=10)
+
+            ai_succeeded = stats.get("ai_succeeded", 0)
+            ai_fallback = stats.get("ai_fallback", 0)
+            by_rel = stats.get("ai_by_relevance", {}) or {}
+
+            top = ctk.CTkFrame(ai_inner, fg_color="transparent")
+            top.pack(fill="x")
+            ctk.CTkLabel(
+                top, text="🤖 AI 분석 결과",
+                font=FONT_SMALL_BOLD, text_color=AI_SUMMARY_TEXT,
+            ).pack(side="left")
+            ctk.CTkLabel(
+                top,
+                text=f"  성공 {ai_succeeded}건  ·  Fallback {ai_fallback}건",
+                font=FONT_CAPTION, text_color=TEXT_SECONDARY,
+            ).pack(side="left")
+
+            rel_row = ctk.CTkFrame(ai_inner, fg_color="transparent")
+            rel_row.pack(fill="x", pady=(6, 0))
+            relevance_chips = [
+                ("🟢 핵심",   by_rel.get("core", 0),       RELEVANCE_CORE_BG),
+                ("🔵 관련",   by_rel.get("relevant", 0),   RELEVANCE_RELEVANT_BG),
+                ("🟡 간접",   by_rel.get("passing", 0),    RELEVANCE_PASSING_BG),
+                ("⚫ 무관",    by_rel.get("irrelevant", 0), RELEVANCE_IRRELEVANT_BG),
+            ]
+            for label, count, color in relevance_chips:
+                ctk.CTkLabel(
+                    rel_row,
+                    text=f"  {label} {count}건  ",
+                    font=FONT_CAPTION,
+                    fg_color=color, text_color="white",
+                    corner_radius=10,
+                ).pack(side="left", padx=(0, 6))
 
         # ── 기사 없으면 안내 ──
         if not articles:
@@ -452,36 +538,40 @@ class MainWindow(ctk.CTk):
             return
 
         # ── 섹션별 기사 표시 ──
+        # passing 등급은 별도의 접힌 섹션으로 분리
         sections = [
-            ("product", "🎯 제품/브랜드 기사", COBALT),
-            ("company", "🏢 기업 기사", NAVY_LIGHT),
-            ("competitor", "⚔️ 경쟁사 기사", ACCENT_ORANGE),
+            ("product", "🎯 제품/브랜드 기사", COBALT, False),
+            ("company", "🏢 기업 기사", NAVY_LIGHT, False),
+            ("competitor", "⚔️ 경쟁사 기사", ACCENT_ORANGE, False),
+            ("industry", "🏭 업계 기사", "#5A6F8A", False),
         ]
 
+        ai_filter_cfg = self.settings.get("ai", {}).get("filter", {}) or {}
+        passing_collapsed = ai_filter_cfg.get("passing_to_collapsed", True)
 
-        for section_key, section_title, section_color in sections:
-            section_articles = [a for a in articles if a.get("section") == section_key]
+        # 메인 섹션 (passing 제외)
+        for section_key, section_title, section_color, _ in sections:
+            section_articles = [
+                a for a in articles
+                if a.get("section") == section_key
+                and (not passing_collapsed or a.get("ai_relevance") != "passing")
+            ]
             if not section_articles:
                 continue
 
-            header_frame = ctk.CTkFrame(
-                self.result_area,
-                fg_color=section_color,
-                corner_radius=8,
-                height=36
-            )
-            header_frame.pack(fill="x", padx=15, pady=(15, 8))
-            header_frame.pack_propagate(False)
-
-            ctk.CTkLabel(
-                header_frame,
-                text=f"  {section_title} ({len(section_articles)}건)",
-                font=FONT_SMALL_BOLD,
-                text_color="white"
-            ).pack(side="left", padx=10, pady=5)
-
+            self._render_section_header(section_title, section_color, len(section_articles))
             for article in section_articles:
                 self._create_article_card(article)
+
+        # 간접 언급(passing) 통합 섹션 — 접힌 상태로
+        if passing_collapsed:
+            passing_articles = [a for a in articles if a.get("ai_relevance") == "passing"]
+            if passing_articles:
+                self._render_collapsible_section(
+                    "💬 간접 언급 기사",
+                    "#9CA3AF",
+                    passing_articles,
+                )
 
         # ── 내보내기 버튼 활성화 ──
         self.export_button.configure(
@@ -491,9 +581,78 @@ class MainWindow(ctk.CTk):
             hover_color=COBALT_HOVER
         )
 
-    def _create_article_card(self, article: dict):
+    def _render_section_header(self, title: str, color: str, count: int):
+        """일반 섹션 헤더 렌더링"""
+        header_frame = ctk.CTkFrame(
+            self.result_area, fg_color=color, corner_radius=8, height=36
+        )
+        header_frame.pack(fill="x", padx=15, pady=(15, 8))
+        header_frame.pack_propagate(False)
+        ctk.CTkLabel(
+            header_frame,
+            text=f"  {title} ({count}건)",
+            font=FONT_SMALL_BOLD, text_color="white",
+        ).pack(side="left", padx=10, pady=5)
+
+    def _render_collapsible_section(self, title: str, color: str, articles: list):
+        """접힌 상태의 섹션 (간접 언급용)"""
+        # 헤더 (클릭 가능)
+        header_frame = ctk.CTkFrame(
+            self.result_area, fg_color=color, corner_radius=8, height=36
+        )
+        header_frame.pack(fill="x", padx=15, pady=(15, 4))
+        header_frame.pack_propagate(False)
+
+        toggle_btn = ctk.CTkButton(
+            header_frame,
+            text=f"  {title} ({len(articles)}건)  ▸  클릭하여 펼치기",
+            font=FONT_SMALL_BOLD,
+            fg_color=color, text_color="white",
+            hover_color=color, anchor="w",
+            corner_radius=8, height=36,
+        )
+        toggle_btn.pack(fill="both", expand=True)
+
+        # 컨테이너 (처음에는 비어 있음)
+        container = ctk.CTkFrame(self.result_area, fg_color="transparent")
+        # 접힌 상태로 시작 → pack 안 함
+
+        is_visible = {"value": False}
+
+        def toggle():
+            if is_visible["value"]:
+                container.pack_forget()
+                toggle_btn.configure(
+                    text=f"  {title} ({len(articles)}건)  ▸  클릭하여 펼치기"
+                )
+                is_visible["value"] = False
+            else:
+                container.pack(fill="x", before=None)
+                toggle_btn.configure(
+                    text=f"  {title} ({len(articles)}건)  ▾  클릭하여 접기"
+                )
+                # 처음 펼칠 때만 카드 생성 (lazy)
+                if not container.winfo_children():
+                    # result_area에서 container를 적절한 위치로 옮기기 위해
+                    # 단순히 pack(fill="x") 후 카드들을 채움
+                    pass
+                # 카드는 매번 다시 그리지 말고 한 번만 생성
+                if not getattr(container, "_built", False):
+                    for art in articles:
+                        self._create_article_card(art, parent=container)
+                    container._built = True
+                is_visible["value"] = True
+
+        toggle_btn.configure(command=toggle)
+
+    def _create_article_card(self, article: dict, parent=None):
+        """기사 카드 렌더링.
+        parent를 지정하면 그 안에, 아니면 result_area에 추가."""
+        if parent is None:
+            parent = self.result_area
+
         card = ctk.CTkFrame(
-            self.result_area,
+            parent,
             fg_color=BG_WHITE,
             corner_radius=10,
             border_width=1,
@@ -504,7 +663,7 @@ class MainWindow(ctk.CTk):
         inner = ctk.CTkFrame(card, fg_color="transparent")
         inner.pack(fill="x", padx=15, pady=12)
 
-        # 상단: 티어 뱃지 + 매체명 + 날짜
+        # ── 상단: 티어 뱃지 + 매체명 + 관련도 뱃지 + 감성 + 날짜 ──
         top_row = ctk.CTkFrame(inner, fg_color="transparent")
         top_row.pack(fill="x", pady=(0, 6))
 
@@ -513,8 +672,7 @@ class MainWindow(ctk.CTk):
         tier_fg = {1: TIER_1_FG, 2: TIER_2_FG, 3: TIER_3_FG}
 
         ctk.CTkLabel(
-            top_row,
-            text=f" T{tier} ",
+            top_row, text=f" T{tier} ",
             font=FONT_CAPTION,
             fg_color=tier_colors.get(tier, "#999"),
             text_color=tier_fg.get(tier, "white"),
@@ -522,42 +680,116 @@ class MainWindow(ctk.CTk):
         ).pack(side="left")
 
         ctk.CTkLabel(
-            top_row,
-            text=f"  {article.get('media_name', '')}",
-            font=FONT_SMALL_BOLD,
-            text_color=TEXT_SECONDARY
+            top_row, text=f"  {article.get('media_name', '')}",
+            font=FONT_SMALL_BOLD, text_color=TEXT_SECONDARY
         ).pack(side="left")
 
+        # ── AI 관련도 뱃지 (v2.0 신규) ──
+        ai_relevance = article.get("ai_relevance")
+        relevance_meta = {
+            "core":     ("🟢 핵심", RELEVANCE_CORE_BG),
+            "relevant": ("🔵 관련", RELEVANCE_RELEVANT_BG),
+            "passing":  ("🟡 간접", RELEVANCE_PASSING_BG),
+        }
+        if ai_relevance in relevance_meta:
+            label, color = relevance_meta[ai_relevance]
+            ctk.CTkLabel(
+                top_row, text=f"  {label}  ",
+                font=FONT_CAPTION,
+                fg_color=color, text_color="white",
+                corner_radius=8,
+            ).pack(side="left", padx=(6, 0))
+
+        # ── AI 감성 태그 (v2.0 신규) ──
+        ai_sentiment = article.get("ai_sentiment")
+        sentiment_meta = {
+            "positive": ("긍정 ↑", SENTIMENT_POSITIVE),
+            "neutral":  ("중립 —", SENTIMENT_NEUTRAL),
+            "negative": ("부정 ↓", SENTIMENT_NEGATIVE),
+        }
+        if ai_sentiment in sentiment_meta:
+            label, color = sentiment_meta[ai_sentiment]
+            ctk.CTkLabel(
+                top_row, text=f"  {label}  ",
+                font=FONT_CAPTION,
+                fg_color=color, text_color="white",
+                corner_radius=8,
+            ).pack(side="left", padx=(4, 0))
+
+        # ── Fallback 뱃지 (AI 분석 실패 시) ──
+        if article.get("ai_fallback"):
+            ctk.CTkLabel(
+                top_row, text="  ⚠ 키워드매칭  ",
+                font=FONT_CAPTION,
+                fg_color=FALLBACK_BADGE_BG, text_color=FALLBACK_BADGE_TEXT,
+                corner_radius=8,
+            ).pack(side="left", padx=(4, 0))
+
         ctk.CTkLabel(
-            top_row,
-            text=article.get("pubDate", ""),
-            font=FONT_CAPTION,
-            text_color=TEXT_PLACEHOLDER
+            top_row, text=article.get("pubDate", ""),
+            font=FONT_CAPTION, text_color=TEXT_PLACEHOLDER
         ).pack(side="right")
 
-        # 제목
+
+        # ── 제목 ──
         ctk.CTkLabel(
-            inner,
-            text=article.get("title", ""),
-            font=FONT_BODY_BOLD,
-            text_color=TEXT_PRIMARY,
-            anchor="w",
-            wraplength=600
-        ).pack(fill="x", pady=(0, 4))
+            inner, text=article.get("title", ""),
+            font=FONT_BODY_BOLD, text_color=TEXT_PRIMARY,
+            anchor="w", justify="left", wraplength=820   # ← 600 → 820
+        ).pack(fill="x", expand=True, pady=(0, 4), anchor="w")
 
-        # 요약
-        desc = article.get("description", "")
-        if desc:
-            ctk.CTkLabel(
+
+        # ── AI 요약 박스 (v2.0 신규) ──
+        ai_summary = article.get("ai_summary", "").strip()
+        if ai_summary and not article.get("ai_fallback"):
+            summary_box = ctk.CTkFrame(
                 inner,
-                text=desc,
+                fg_color=AI_SUMMARY_BG,
+                corner_radius=6,
+                border_width=1,
+                border_color=AI_SUMMARY_BORDER,
+            )
+            summary_box.pack(fill="x", pady=(2, 6))
+            ctk.CTkLabel(
+                summary_box,
+                text=f"🤖 {ai_summary}",
                 font=FONT_SMALL,
-                text_color=TEXT_SECONDARY,
-                anchor="w",
-                wraplength=600
-            ).pack(fill="x", pady=(0, 6))
+                text_color=AI_SUMMARY_TEXT,
+                anchor="w",                   # 왼쪽 앵커
+                justify="left",               # 줄바꿈된 줄도 왼쪽 정렬
+                wraplength=820,               # ← 580 → 820 (이슈 3 적용)
+            ).pack(fill="x", expand=True, padx=12, pady=8, anchor="w")
+            #          ^^^^^^^^^^^^^^^^^^                  ^^^^^^^^^^
+            # expand로 라벨이 좌우 꽉 채우게 + 라벨 위치 자체도 west로
 
-        # 매칭 키워드 태그
+        else:
+            desc = article.get("description", "")
+            if desc:
+                ctk.CTkLabel(
+                    inner, text=desc,
+                    font=FONT_SMALL, text_color=TEXT_SECONDARY,
+                    anchor="w", justify="left", wraplength=820
+                ).pack(fill="x", expand=True, pady=(0, 6), anchor="w")
+
+
+        # ── AI 엔티티 칩 (v2.0 신규) ──
+        ai_entities = article.get("ai_entities", []) or []
+        if ai_entities:
+            entity_frame = ctk.CTkFrame(inner, fg_color="transparent")
+            entity_frame.pack(fill="x", pady=(0, 4))
+            ctk.CTkLabel(
+                entity_frame, text="🏷️",
+                font=FONT_CAPTION, text_color=TEXT_SECONDARY,
+            ).pack(side="left", padx=(0, 4))
+            for entity in ai_entities[:6]:  # 최대 6개
+                ctk.CTkLabel(
+                    entity_frame, text=f" {entity} ",
+                    font=FONT_CAPTION,
+                    fg_color=ENTITY_CHIP_BG, text_color=ENTITY_CHIP_TEXT,
+                    corner_radius=4,
+                ).pack(side="left", padx=(0, 4))
+
+        # ── 매칭 키워드 태그 (v1 유지) ──
         matched_tags = article.get("matched_tags", [])
         if matched_tags:
             tag_frame = ctk.CTkFrame(inner, fg_color="transparent")
@@ -565,15 +797,13 @@ class MainWindow(ctk.CTk):
             for tag in matched_tags[:5]:
                 tag_color = COBALT if tag.startswith("🏢") else ACCENT_ORANGE
                 ctk.CTkLabel(
-                    tag_frame,
-                    text=f" {tag} ",
+                    tag_frame, text=f" {tag} ",
                     font=FONT_CAPTION,
-                    fg_color=tag_color,
-                    text_color="white",
+                    fg_color=tag_color, text_color="white",
                     corner_radius=4
                 ).pack(side="left", padx=(0, 4))
 
-        # 커버리지 (유사 기사 — 펼침/접힘)
+        # ── 유사 기사 (펼침/접힘 — v1 로직 그대로) ──
         similar_count = article.get("similar_count", 0)
         if similar_count > 0:
             similar_articles = article.get("similar_articles", [])
@@ -582,113 +812,84 @@ class MainWindow(ctk.CTk):
             coverage_container = ctk.CTkFrame(inner, fg_color="transparent")
             coverage_container.pack(fill="x", pady=(0, 4))
 
-            # 요약 바 (클릭 가능)
             summary_btn = ctk.CTkButton(
                 coverage_container,
                 text=f"  📰 유사 기사 {similar_count}건 ▸ 클릭하여 펼치기",
                 font=FONT_CAPTION,
-                fg_color=SKY_BLUE,
-                text_color=NAVY,
+                fg_color=SKY_BLUE, text_color=NAVY,
                 hover_color="#CBD5F0",
-                height=28,
-                corner_radius=6,
-                anchor="w",
-                command=None  # 아래에서 설정
+                height=28, corner_radius=6, anchor="w",
+                command=None
             )
             summary_btn.pack(fill="x")
 
-            # 펼침 영역 (처음에는 숨김)
             detail_frame = ctk.CTkFrame(
                 coverage_container,
                 fg_color=BG_WHITE,
-                border_width=1,
-                border_color="#E2E8F0",
-                corner_radius=6
+                border_width=1, border_color="#E2E8F0",
+                corner_radius=6,
             )
             detail_is_visible = {"value": False}
 
-            # 유사 기사 상세 목록 채우기
             if similar_articles:
                 for sim_art in similar_articles:
                     row = ctk.CTkFrame(detail_frame, fg_color="transparent")
                     row.pack(fill="x", padx=10, pady=(4, 0))
 
-                    # 매체명
                     sim_name = sim_art.get("media_name", sim_art.get("source", ""))
                     sim_tier = sim_art.get("tier", 0)
-                    tier_colors = {1: TIER_1_BG, 2: TIER_2_BG, 3: TIER_3_BG}
-                    tier_fg_colors = {1: TIER_1_FG, 2: TIER_2_FG, 3: TIER_3_FG}
+                    tcols = {1: TIER_1_BG, 2: TIER_2_BG, 3: TIER_3_BG}
+                    tfgs = {1: TIER_1_FG, 2: TIER_2_FG, 3: TIER_3_FG}
 
                     row_top = ctk.CTkFrame(row, fg_color="transparent")
                     row_top.pack(fill="x")
-
                     ctk.CTkLabel(
-                        row_top,
-                        text=f" T{sim_tier} ",
+                        row_top, text=f" T{sim_tier} ",
                         font=FONT_CAPTION,
-                        fg_color=tier_colors.get(sim_tier, "#999"),
-                        text_color=tier_fg_colors.get(sim_tier, "white"),
+                        fg_color=tcols.get(sim_tier, "#999"),
+                        text_color=tfgs.get(sim_tier, "white"),
                         corner_radius=3
                     ).pack(side="left")
-
                     ctk.CTkLabel(
-                        row_top,
-                        text=f"  {sim_name}",
-                        font=FONT_CAPTION,
-                        text_color=TEXT_SECONDARY
+                        row_top, text=f"  {sim_name}",
+                        font=FONT_CAPTION, text_color=TEXT_SECONDARY
                     ).pack(side="left")
-
                     ctk.CTkLabel(
-                        row_top,
-                        text=sim_art.get("pubDate", ""),
-                        font=FONT_CAPTION,
-                        text_color=TEXT_PLACEHOLDER
+                        row_top, text=sim_art.get("pubDate", ""),
+                        font=FONT_CAPTION, text_color=TEXT_PLACEHOLDER
                     ).pack(side="right")
 
-                    # 제목 (클릭 가능)
                     sim_title = sim_art.get("title", "제목 없음")
                     sim_url = sim_art.get("originallink") or sim_art.get("link", "")
-
                     if sim_url:
-                        title_btn = ctk.CTkButton(
-                            row,
-                            text=sim_title,
+                        ctk.CTkButton(
+                            row, text=sim_title,
                             font=FONT_CAPTION,
-                            fg_color="transparent",
-                            text_color=COBALT,
+                            fg_color="transparent", text_color=COBALT,
                             hover_color=SKY_BLUE,
-                            height=20,
-                            anchor="w",
+                            height=20, anchor="w",
                             command=lambda url=sim_url: self._open_url(url)
-                        )
-                        title_btn.pack(fill="x", pady=(0, 4))
+                        ).pack(fill="x", pady=(0, 4))
                     else:
                         ctk.CTkLabel(
-                            row,
-                            text=sim_title,
-                            font=FONT_CAPTION,
-                            text_color=TEXT_PRIMARY,
+                            row, text=sim_title,
+                            font=FONT_CAPTION, text_color=TEXT_PRIMARY,
                             anchor="w"
                         ).pack(fill="x", pady=(0, 4))
-
-                # 하단 여백
                 ctk.CTkFrame(detail_frame, fg_color="transparent", height=6).pack()
-
             else:
-                # similar_articles가 없으면 매체명만 표시 (하위 호환)
                 sources_text = ", ".join(similar_sources[:10])
                 if len(similar_sources) > 10:
                     sources_text += f" 외 {len(similar_sources) - 10}개"
                 ctk.CTkLabel(
                     detail_frame,
                     text=f"  {sources_text}",
-                    font=FONT_CAPTION,
-                    text_color=TEXT_SECONDARY,
+                    font=FONT_CAPTION, text_color=TEXT_SECONDARY,
                     anchor="w"
                 ).pack(fill="x", padx=10, pady=6)
 
-            # 토글 함수
-            def toggle_detail(df=detail_frame, btn=summary_btn, vis=detail_is_visible, cnt=similar_count):
+            def toggle_detail(df=detail_frame, btn=summary_btn,
+                              vis=detail_is_visible, cnt=similar_count):
                 if vis["value"]:
                     df.pack_forget()
                     btn.configure(text=f"  📰 유사 기사 {cnt}건 ▸ 클릭하여 펼치기")
@@ -700,20 +901,18 @@ class MainWindow(ctk.CTk):
 
             summary_btn.configure(command=toggle_detail)
 
-        # 링크 버튼
+        # ── 원문 링크 ──
         link_url = article.get("originallink") or article.get("link", "")
         if link_url:
             ctk.CTkButton(
-                inner,
-                text="🔗 원문 보기",
+                inner, text="🔗 원문 보기",
                 font=FONT_CAPTION,
-                fg_color="transparent",
-                text_color=COBALT,
+                fg_color="transparent", text_color=COBALT,
                 hover_color=SKY_BLUE,
-                height=24,
-                anchor="w",
+                height=24, anchor="w",
                 command=lambda url=link_url: self._open_url(url)
             ).pack(anchor="w")
+
 
     def _open_url(self, url: str):
         webbrowser.open(url)

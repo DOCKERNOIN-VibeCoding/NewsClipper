@@ -43,3 +43,31 @@ FONT_BODY_BOLD = (FONT_FAMILY, 16, "bold")
 FONT_SMALL = (FONT_FAMILY, 14)
 FONT_SMALL_BOLD = (FONT_FAMILY, 14, "bold")
 FONT_CAPTION = (FONT_FAMILY, 13)
+
+
+# ─────────────────────────────────────
+#  v2.0: AI 분석 결과 표시용 색상
+# ─────────────────────────────────────
+# 관련도 뱃지
+RELEVANCE_CORE_BG = "#10B981"      # 초록 (핵심)
+RELEVANCE_RELEVANT_BG = "#3B82F6"  # 파랑 (관련)
+RELEVANCE_PASSING_BG = "#F59E0B"   # 주황 (간접)
+RELEVANCE_IRRELEVANT_BG = "#9CA3AF"  # 회색 (무관, 보통은 표시 안함)
+
+# 감성 태그
+SENTIMENT_POSITIVE = "#10B981"
+SENTIMENT_NEUTRAL = "#6B7280"
+SENTIMENT_NEGATIVE = "#EF4444"
+
+# AI 요약 박스
+AI_SUMMARY_BG = "#F0F7FF"       # 아주 연한 하늘색
+AI_SUMMARY_BORDER = "#BFDBFE"
+AI_SUMMARY_TEXT = "#1E3A5F"
+
+# 엔티티 칩
+ENTITY_CHIP_BG = "#EEF2FF"
+ENTITY_CHIP_TEXT = "#4338CA"
+
+# Fallback(키워드 매칭) 표시
+FALLBACK_BADGE_BG = "#FEF3C7"
+FALLBACK_BADGE_TEXT = "#92400E"
