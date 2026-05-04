@@ -243,7 +243,7 @@ class SettingsSearchDialog(ctk.CTkToplevel):
 
         # 매체 티어 — 여러분 파일의 실제 변수명에 맞춰서 작성
         allowed_tiers = [int(t) for t, var in self.tier_vars.items() if var.get()]
-        include_tier3 = self.include_tier3_var.get()
+        include_tier3 = self.tier3_coverage_var.get()
 
         # ── 2) partial 구성 (이 다이얼로그가 책임지는 부분만) ──
         partial = {
@@ -274,6 +274,15 @@ class SettingsSearchDialog(ctk.CTkToplevel):
         save_settings(partial)
 
         self.destroy()
+
+    @staticmethod
+    def _parse_csv(text: str) -> list:
+        """쉼표로 구분된 문자열을 리스트로 변환.
+        예: '비비고, 햇반,  비비고 만두 ' → ['비비고', '햇반', '비비고 만두']
+        """
+        if not text:
+            return []
+        return [item.strip() for item in text.split(",") if item.strip()]
 
 
     def _show_error(self, msg: str):

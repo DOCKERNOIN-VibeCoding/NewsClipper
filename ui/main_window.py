@@ -1135,5 +1135,6 @@ class MainWindow(ctk.CTk):
     def _load_settings(self):
         from utils.settings_io import load_settings
         self.settings = load_settings()
-
+        return self.settings
+    
 
