@@ -518,6 +518,7 @@ class MainWindow(ctk.CTk):
                 ("🟡 간접",   by_rel.get("passing", 0),    RELEVANCE_PASSING_BG),
                 ("⚫ 무관",    by_rel.get("irrelevant", 0), RELEVANCE_IRRELEVANT_BG),
             ]
+ 
             for label, count, color in relevance_chips:
                 ctk.CTkLabel(
                     rel_row,
@@ -526,6 +527,11 @@ class MainWindow(ctk.CTk):
                     fg_color=color, text_color="white",
                     corner_radius=10,
                 ).pack(side="left", padx=(0, 6))
+
+        # ── 🔥 HOT KEYWORDS Top 10 (Phase 2-3 신규) ──
+        hot_keywords = results.get("hot_keywords", []) or []
+        if hot_keywords:
+            self._render_hot_keywords_card(hot_keywords)
 
         # ── 기사 없으면 안내 ──
         if not articles:
@@ -580,6 +586,117 @@ class MainWindow(ctk.CTk):
             text_color="white",
             hover_color=COBALT_HOVER
         )
+    def _render_hot_keywords_card(self, hot_keywords: list):
+        """🔥 HOT KEYWORDS Top 10 가로 바 차트 카드 (Phase 2-3)."""
+        if not hot_keywords:
+            return
+
+        # 카드 컨테이너
+        card = ctk.CTkFrame(
+            self.result_area,
+            fg_color=HOT_CARD_BG,
+            corner_radius=10,
+            border_width=1,
+            border_color=HOT_CARD_BORDER,
+        )
+        card.pack(fill="x", padx=15, pady=(0, 12))
+
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=15, pady=12)
+
+        # ── 헤더: 제목 + 색상 범례 ──
+        header_row = ctk.CTkFrame(inner, fg_color="transparent")
+        header_row.pack(fill="x", pady=(0, 8))
+
+        ctk.CTkLabel(
+            header_row,
+            text=f"🔥 HOT KEYWORDS Top {len(hot_keywords)}",
+            font=FONT_SMALL_BOLD,
+            text_color=HOT_TITLE_COLOR,
+        ).pack(side="left")
+
+        # 색상 범례
+        legend_row = ctk.CTkFrame(header_row, fg_color="transparent")
+        legend_row.pack(side="right")
+
+        legend_items = [
+            ("자사", HOT_BAR_COMPANY),
+            ("경쟁사", HOT_BAR_COMPETITOR),
+            ("기타", HOT_BAR_OTHER),
+        ]
+        for text, color in legend_items:
+            chip = ctk.CTkFrame(legend_row, fg_color="transparent")
+            chip.pack(side="left", padx=(0, 8))
+            ctk.CTkFrame(
+                chip, fg_color=color, width=10, height=10, corner_radius=2
+            ).pack(side="left", padx=(0, 4), pady=4)
+            ctk.CTkLabel(
+                chip, text=text,
+                font=FONT_CAPTION, text_color=TEXT_SECONDARY,
+            ).pack(side="left")
+
+        # ── 가로 바 차트 ──
+        # 최댓값 기준으로 비율 계산
+        max_count = max((h.get("count", 0) for h in hot_keywords), default=1)
+        max_count = max(max_count, 1)  # 0 방지
+
+        category_color = {
+            "company":     HOT_BAR_COMPANY,
+            "competitor":  HOT_BAR_COMPETITOR,
+            "other":       HOT_BAR_OTHER,
+        }
+
+        for item in hot_keywords:
+            rank = item.get("rank", 0)
+            keyword = item.get("keyword", "")
+            count = item.get("count", 0)
+            category = item.get("category", "other")
+            color = category_color.get(category, HOT_BAR_OTHER)
+
+            # 한 줄: [순위] [키워드 (고정폭)] [바 (가변폭)] [점수]
+            row = ctk.CTkFrame(inner, fg_color="transparent", height=22)
+            row.pack(fill="x", pady=1)
+            row.pack_propagate(False)
+
+            # 순위
+            ctk.CTkLabel(
+                row, text=f"{rank:>2}.",
+                font=FONT_CAPTION, text_color=TEXT_SECONDARY,
+                width=24, anchor="e",
+            ).pack(side="left", padx=(0, 6))
+
+            # 키워드 (고정폭)
+            ctk.CTkLabel(
+                row, text=keyword,
+                font=FONT_SMALL_BOLD, text_color=TEXT_PRIMARY,
+                width=140, anchor="w",
+            ).pack(side="left", padx=(0, 8))
+
+            # 점수 라벨 (오른쪽에 먼저 배치)
+            ctk.CTkLabel(
+                row, text=f"{count}",
+                font=FONT_CAPTION, text_color=TEXT_SECONDARY,
+                width=40, anchor="w",
+            ).pack(side="right", padx=(8, 0))
+
+            # 바 컨테이너 (남은 공간 채움)
+            bar_container = ctk.CTkFrame(
+                row, fg_color=HOT_BAR_BG,
+                corner_radius=4, height=14,
+            )
+            bar_container.pack(side="left", fill="x", expand=True, pady=4)
+            bar_container.pack_propagate(False)
+
+            # 실제 바 (비율에 따라 너비)
+            ratio = count / max_count
+            # CTkFrame의 width를 동적으로 계산하기 어려우므로
+            # place로 % 기반 너비 적용
+            bar = ctk.CTkFrame(
+                bar_container, fg_color=color,
+                corner_radius=4,
+            )
+            # relwidth로 비율 적용
+            bar.place(relx=0, rely=0, relwidth=ratio, relheight=1.0)
 
     def _render_section_header(self, title: str, color: str, count: int):
         """일반 섹션 헤더 렌더링"""

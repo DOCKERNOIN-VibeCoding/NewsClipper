@@ -71,3 +71,12 @@ ENTITY_CHIP_TEXT = "#4338CA"
 # Fallback(키워드 매칭) 표시
 FALLBACK_BADGE_BG = "#FEF3C7"
 FALLBACK_BADGE_TEXT = "#92400E"
+
+# ── HOT KEYWORDS (Phase 2-3) ──
+HOT_BAR_COMPANY = COBALT          # 자사 (파란색)
+HOT_BAR_COMPETITOR = ACCENT_ORANGE  # 경쟁사 (주황색)
+HOT_BAR_OTHER = "#9CA3AF"          # 기타 (회색)
+HOT_BAR_BG = "#F3F4F6"             # 바 배경 (연한 회색)
+HOT_CARD_BG = "#FFFBEB"            # 카드 배경 (살짝 노란기 — 강조)
+HOT_CARD_BORDER = "#FCD34D"        # 카드 테두리 (노랑)
+HOT_TITLE_COLOR = "#92400E"        # 제목 텍스트 (진한 갈색)

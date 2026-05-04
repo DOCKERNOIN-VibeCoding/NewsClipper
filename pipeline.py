@@ -10,6 +10,7 @@ from filters.media_filter import MediaFilter
 from filters.date_filter import DateFilter
 from dedup.deduplicator import ArticleDeduplicator
 from ai.article_analyzer import analyze_with_ai
+from ai.hot_keywords import aggregate_hot_keywords
 
 
 class NewsPipeline:
@@ -275,17 +276,60 @@ class NewsPipeline:
              f"⚔️ 경쟁사: {competitor_cnt}건  🏭 업계: {industry_cnt}건")
         _log(f"  AI 관련도 — 🟢 core {core_cnt}  🟡 passing {passing_cnt}")
 
+    
         # ═══════════════════════════════
-        #  (Phase 2-3 예정) HOT KEYWORDS 집계
+        #  Step 8.5: 🔥 HOT KEYWORDS Top 10 집계
         # ═══════════════════════════════
-        # TODO: from output.hot_keywords import build_hot_keywords
-        #       hot_keywords = build_hot_keywords(final, keyword_groups)
-        #       self.results["hot_keywords"] = hot_keywords
+        _log("\n🔥 HOT KEYWORDS 집계 중...")
+        try:
+            # 모든 검색 키워드를 제외 대상으로 통합
+            all_search_keywords = (
+                keyword_groups.get("products", [])
+                + keyword_groups.get("company", [])
+                + keyword_groups.get("competitors", [])
+                + keyword_groups.get("industry", [])
+            )
+
+            # 자사 키워드 = 제품 + 회사명
+            company_set = (
+                keyword_groups.get("products", [])
+                + keyword_groups.get("company", [])
+            )
+
+            hot_keywords = aggregate_hot_keywords(
+                articles=final,
+                company_keywords=company_set,
+                competitor_keywords=keyword_groups.get("competitors", []),
+                search_keywords=all_search_keywords,
+                top_n=10,
+                ai_api_key=gemini_api_key,
+                ai_model=ai_cfg.get("model", "gemini-2.5-flash-lite"),
+                log_callback=_log,
+            )
+
+
+            # 로그에 미리보기 출력
+            if hot_keywords:
+                _log(f"  ✅ Top {len(hot_keywords)} 키워드 추출 완료")
+                top3 = hot_keywords[:3]
+                preview = ", ".join(
+                    f"{h['keyword']}({h['count']})" for h in top3
+                )
+                _log(f"     상위 3개: {preview}")
+            else:
+                _log("  ℹ️ 추출된 HOT KEYWORDS가 없습니다 (기사 부족)")
+
+        except Exception as e:
+            _log(f"  ⚠️ HOT KEYWORDS 집계 실패: {e}")
+            hot_keywords = []
 
         # ═══════════════════════════════
         #  결과 저장
         # ═══════════════════════════════
+
+
         self.results["articles"] = final
+        self.results["hot_keywords"] = hot_keywords
         self.results["stats"] = {
             "total_collected": len(all_articles),
             "after_media_filter": len(filtered),
