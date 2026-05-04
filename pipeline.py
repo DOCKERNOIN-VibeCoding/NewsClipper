@@ -5,6 +5,8 @@ import os
 import yaml
 from typing import Dict, List, Callable, Optional
 
+from utils.paths import resource_path
+
 from collectors.naver_api import NaverNewsCollector
 from filters.media_filter import MediaFilter
 from filters.date_filter import DateFilter
@@ -480,8 +482,9 @@ class NewsPipeline:
         }
 
     def _load_industry_keywords(self) -> dict:
-        path = os.path.join("config", "industry_keywords.yaml")
+        path = resource_path(os.path.join("config", "industry_keywords.yaml"))
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         return {}
+

@@ -18,14 +18,19 @@ HOT KEYWORDS 집계 모듈
   7. 자사/경쟁사/기타 카테고리 분류
 """
 
+
 from __future__ import annotations
 
+import os
 import re
 from collections import Counter
 from pathlib import Path
 from typing import Dict, List, Optional, Iterable
 
 import yaml
+
+from utils.paths import resource_path
+
 
 
 # AI 엔티티 가중치 (제목 명사 대비)
@@ -77,8 +82,11 @@ class HotKeywordsAggregator:
         # (자사/경쟁사 키워드는 카테고리 분류용으로만 사용, 제외 대상에 넣지 않음)
         self.excluded_keywords = set(self._normalize_keywords(search_keywords or []))
 
+        # 절대 경로가 아니면 resource_path로 변환
+        if not os.path.isabs(stopwords_path):
+            stopwords_path = resource_path(stopwords_path)
         self.stopwords = self._load_stopwords(stopwords_path)
-
+        
         # AI 분류기
         self.ai_api_key = ai_api_key
         self.ai_model = ai_model

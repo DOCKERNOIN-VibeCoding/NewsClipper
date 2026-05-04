@@ -4,6 +4,7 @@ import customtkinter as ctk
 import yaml
 import os
 from ui.theme import *
+from utils.paths import resource_path, user_data_path
 
 
 class SettingsSearchDialog(ctk.CTkToplevel):
@@ -224,81 +225,56 @@ class SettingsSearchDialog(ctk.CTkToplevel):
         ).pack(side="right", expand=True, fill="x", padx=(5, 0))
 
     def _save(self):
-        # 산업군
-        selected_ind = [k for k, v in self.industry_vars.items() if v.get()]
-        if not selected_ind:
-            self._show_error("산업군을 1개 이상 선택해주세요.")
-            return
-        if len(selected_ind) > 3:
-            self._show_error("산업군은 최대 3개까지 선택 가능합니다.")
-            return
+        # ── 1) UI에서 값 수집 (기존 코드 그대로) ──
+        selected_industries = [ind for ind, var in self.industry_vars.items() if var.get()]
 
-        # 제품/브랜드명 (필수)
-        products = [k.strip() for k in self.products_entry.get().split(",") if k.strip()]
-        if not products:
-            self._show_error("제품/브랜드명을 1개 이상 입력해주세요.")
-            return
+        products = self._parse_csv(self.products_entry.get())
+        company = self._parse_csv(self.company_entry.get())
+        competitors = self._parse_csv(self.competitors_entry.get())
+        industry_general = self._parse_csv(self.general_entry.get())
 
-        # 회사명 (필수)
-        company = [k.strip() for k in self.company_entry.get().split(",") if k.strip()]
-        if not company:
-            self._show_error("회사명을 1개 이상 입력해주세요.")
-            return
-        if len(company) > 2:
-            self._show_error("회사명은 최대 2개까지 입력 가능합니다.")
-            return
-
-        # 경쟁사 (선택)
-        competitors = [k.strip() for k in self.competitors_entry.get().split(",") if k.strip()]
-
-        # 업계 공통 (선택)
-        general = [k.strip() for k in self.general_entry.get().split(",") if k.strip()]
-
-        # 스케줄
+        frequency = self.freq_var.get()
         try:
-            range_days = int(self.range_entry.get())
-            if range_days < 1 or range_days > 30:
-                raise ValueError
+            range_days = int(self.range_entry.get() or 7)
         except ValueError:
-            self._show_error("취합 범위는 1~30 사이 숫자를 입력해주세요.")
-            return
+            range_days = 7
 
-        # 매체 티어
-        allowed_tiers = [t for t, v in self.tier_vars.items() if v.get()]
-        if not allowed_tiers:
-            self._show_error("매체 티어를 1개 이상 선택해주세요.")
-            return
+        sensitivity = int(round(self.sensitivity_slider.get()))
 
-        # 저장
-        self.settings["search"] = {
-            "industries": selected_ind,
-            "keywords": {
-                "products": products,
-                "company": company,
-                "competitors": competitors,
-                "industry_general": general
-            }
-        }
-        self.settings["schedule"] = {
-            "frequency": self.freq_var.get(),
-            "range_days": range_days
-        }
+        # 매체 티어 — 여러분 파일의 실제 변수명에 맞춰서 작성
+        allowed_tiers = [int(t) for t, var in self.tier_vars.items() if var.get()]
+        include_tier3 = self.include_tier3_var.get()
 
-        # 중복 병합 감도
-        self.settings["dedup"] = {
-            "sensitivity_level": int(round(self.sensitivity_slider.get()))
-        }
-       
-        self.settings["media"] = {
-            "allowed_tiers": allowed_tiers,
-            "include_tier3_coverage": self.tier3_coverage_var.get()
+        # ── 2) partial 구성 (이 다이얼로그가 책임지는 부분만) ──
+        partial = {
+            "search": {
+                "industries": selected_industries,
+                "keywords": {
+                    "products": products,
+                    "company": company,
+                    "competitors": competitors,
+                    "industry_general": industry_general,
+                },
+            },
+            "schedule": {
+                "frequency": frequency,
+                "range_days": range_days,
+            },
+            "dedup": {
+                "sensitivity_level": sensitivity,
+            },
+            "media": {
+                "allowed_tiers": allowed_tiers,
+                "include_tier3_coverage": include_tier3,
+            },
         }
 
-        os.makedirs("config", exist_ok=True)
-        with open(os.path.join("config", "settings.yaml"), "w", encoding="utf-8") as f:
-            yaml.dump(self.settings, f, allow_unicode=True, default_flow_style=False)
+        # ── 3) 기존 파일과 deep-merge 해서 저장 ──
+        from utils.settings_io import save_settings
+        save_settings(partial)
 
         self.destroy()
+
 
     def _show_error(self, msg: str):
         err_window = ctk.CTkToplevel(self)
@@ -311,7 +287,7 @@ class SettingsSearchDialog(ctk.CTkToplevel):
         ctk.CTkButton(err_window, text="확인", command=err_window.destroy, fg_color=COBALT, height=34).pack(pady=(0, 15))
 
     def _load_industry_keywords(self) -> dict:
-        path = os.path.join("config", "industry_keywords.yaml")
+        path = resource_path(os.path.join("config", "industry_keywords.yaml")) 
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}

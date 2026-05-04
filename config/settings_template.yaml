@@ -27,7 +27,7 @@ dedup:
 ai:
   enabled: true                      # false면 v1 방식(로컬 키워드 매칭)으로 동작
   model: "gemini-2.5-flash"          # gemini-2.5-flash / gemini-2.5-flash-lite
-  batch_size: 5                      # 1회 API 호출당 분석 기사 수 (1~10 권장)
+  batch_size: 10                      # 1회 API 호출당 분석 기사 수 (1~10 권장)
   max_retries: 3                     # 호출 실패 시 재시도 횟수
   timeout_sec: 30                    # 단일 호출 타임아웃 (초)
 

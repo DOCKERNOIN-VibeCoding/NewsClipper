@@ -6,6 +6,7 @@ import os
 import threading
 import webbrowser
 from ui.theme import *
+from utils.paths import user_data_path
 
 
 class MainWindow(ctk.CTk):
@@ -1065,7 +1066,7 @@ class MainWindow(ctk.CTk):
 
             # 설정 로드
             settings = {}
-            settings_path = os.path.join("config", "settings.yaml")
+            settings_path = user_data_path(os.path.join("config", "settings.yaml"))
             if os.path.exists(settings_path):
                 with open(settings_path, "r", encoding="utf-8") as f:
                     settings = yaml.safe_load(f) or {}
@@ -1132,11 +1133,7 @@ class MainWindow(ctk.CTk):
         ])
 
     def _load_settings(self):
-        """config/settings.yaml 로드"""
-        import yaml
-        settings_path = os.path.join("config", "settings.yaml")
-        if os.path.exists(settings_path):
-           with open(settings_path, "r", encoding="utf-8") as f:
-             return yaml.safe_load(f) or {}
-        return {}
+        from utils.settings_io import load_settings
+        self.settings = load_settings()
+
 

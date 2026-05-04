@@ -18,6 +18,11 @@ from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+# 재시도 설정
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_BACKOFF_BASE = 2.0  # 1차 2s, 2차 4s, 3차 8s
+RETRYABLE_ERROR_KEYWORDS = ("503", "UNAVAILABLE", "overloaded", "deadline", "timeout", "500", "502", "504")
+
 
 # ─────────────────────────────────────────────────────
 # 결과 데이터 구조
@@ -99,10 +104,12 @@ class KeywordClassifier:
         api_key: str,
         model: str = "gemini-2.5-flash-lite",
         timeout_sec: int = 30,
+        max_retries: int = DEFAULT_MAX_RETRIES,
     ):
         self.api_key = api_key or ""
         self.model = model
         self.timeout_sec = timeout_sec
+        self.max_retries = max(1, max_retries)
         self._client = None
 
         if self.api_key:
@@ -157,21 +164,87 @@ class KeywordClassifier:
     # ─────────────────────────────────────────────────
 
     def _call_ai(self, candidates: List[str]) -> List[ClassifiedKeyword]:
-        """Gemini 호출 + JSON 파싱."""
+        """Gemini 호출 + JSON 파싱. 일시 오류(503 등) 시 지수 백오프 재시도."""
+        import time
+
         # 후보를 번호 매겨 명확하게 전달
         candidate_text = "\n".join(f"- {w}" for w in candidates)
         prompt = _PROMPT_TEMPLATE.format(candidates=candidate_text)
 
         from google.genai import types
 
-        response = self._client.models.generate_content(
-            model=self.model,
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                temperature=0.1,
-                response_mime_type="application/json",
-            ),
-        )
+        last_error: Optional[Exception] = None
+
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                response = self._client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        temperature=0.1,
+                        response_mime_type="application/json",
+                    ),
+                )
+
+                text = (response.text or "").strip()
+                if not text:
+                    raise ValueError("빈 응답")
+
+                # JSON 추출 (코드블록 래핑 등 보정)
+                json_text = self._extract_json(text)
+                data = json.loads(json_text)
+
+                filtered = data.get("filtered", [])
+                if not isinstance(filtered, list):
+                    raise ValueError("filtered 필드가 배열이 아닙니다.")
+
+                results = []
+                for item in filtered:
+                    if not isinstance(item, dict):
+                        continue
+                    canonical = (item.get("canonical") or "").strip()
+                    if not canonical:
+                        continue
+                    aliases = item.get("aliases") or []
+                    aliases = [a.strip() for a in aliases if isinstance(a, str) and a.strip()]
+                    is_valid = bool(item.get("is_valid", True))
+
+                    results.append(ClassifiedKeyword(
+                        canonical=canonical,
+                        aliases=aliases,
+                        is_valid=is_valid,
+                    ))
+
+                # 성공 — 결과 반환
+                if attempt > 1:
+                    logger.info(f"키워드 분류 {attempt}회차 시도 성공")
+                return results
+
+            except Exception as e:
+                last_error = e
+                err_str = str(e)
+                is_retryable = any(k.lower() in err_str.lower() for k in RETRYABLE_ERROR_KEYWORDS)
+
+                # 마지막 시도였거나, 재시도 불가능한 오류면 즉시 포기
+                if attempt >= self.max_retries or not is_retryable:
+                    logger.warning(
+                        f"키워드 분류 실패 (최종, {attempt}/{self.max_retries}회차): {err_str[:120]}"
+                    )
+                    raise
+
+                # 지수 백오프 후 재시도
+                wait_sec = DEFAULT_BACKOFF_BASE ** attempt  # 2s, 4s, 8s
+                logger.warning(
+                    f"키워드 분류 일시 오류 (재시도 {attempt}/{self.max_retries}, "
+                    f"{wait_sec}초 후): {err_str[:120]}"
+                )
+                time.sleep(wait_sec)
+
+        # 여기 도달하면 안 되지만 안전장치
+        if last_error:
+            raise last_error
+        raise RuntimeError("재시도 로직 비정상 종료")
+
 
         text = (response.text or "").strip()
         if not text:
