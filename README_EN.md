@@ -104,11 +104,13 @@ python main.py
 - 2-1 : CLI / Windows Task SchedulerCLI  ⏸ Planned
 
 ## Changelog
+```bash
 v2.3 (2026-05-05) — Dual HTML report templates, Outlook/Word email compatibility
 v2.2.1 (2026-05-04) — settings.yaml preservation (deep merge), 503 retry, dialog stability
 v2.2 (2026-05-04) — HOT KEYWORDS Top 10 + color bar chart
 v2.0 (2026-05-03) — Gemini AI integration: relevance, summary, entities, sentiment
 v1.0 (2026-05) — Initial release with Naver API + TF-IDF
+```
 
 ## License
 MIT License
