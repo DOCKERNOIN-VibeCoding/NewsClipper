@@ -420,6 +420,7 @@ class MainWindow(ctk.CTk):
     def _on_pipeline_complete(self, results: dict):
         self.start_button.configure(state="normal", text="🚀  뉴스 클리핑 시작")
         self.last_results = results
+        self._last_hot_keywords = results.get("hot_keywords", []) or []
         self._show_results(results)
 
     def _on_pipeline_error(self, error_msg: str):
@@ -1074,7 +1075,11 @@ class MainWindow(ctk.CTk):
             stats = getattr(self, '_last_stats', {})
 
             # HTML 생성
-            html = build_html_report(self._last_articles, stats, settings)
+            hot_keywords = getattr(self, '_last_hot_keywords', []) or []
+            html = build_html_report(
+                self._last_articles, stats, settings,
+                hot_keywords=hot_keywords,
+            )
 
             # 선택한 경로에 저장
             with open(filepath, "w", encoding="utf-8") as f:
