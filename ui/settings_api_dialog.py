@@ -173,18 +173,24 @@ class SettingsApiDialog(ctk.CTkToplevel):
         threading.Thread(target=_do_test, daemon=True).start()
 
     def _save(self):
-        self.settings.setdefault("api", {})
-        self.settings["api"]["naver"] = {
-            "client_id": self.naver_id_entry.get().strip(),
-            "client_secret": self.naver_secret_entry.get().strip()
-        }
-        self.settings["api"]["gemini"] = {
-            "api_key": self.gemini_key_entry.get().strip(),
-            "model": self.gemini_model_var.get()
+        # 이번 다이얼로그가 책임지는 부분만 partial로 만든다
+        partial = {
+            "api": {
+                "naver": {
+                    "client_id": self.naver_id_entry.get().strip(),
+                    "client_secret": self.naver_secret_entry.get().strip(),
+                },
+                "gemini": {
+                    "api_key": self.gemini_key_entry.get().strip(),
+                    "model": self.gemini_model_var.get(),
+                },
+            }
         }
 
-        os.makedirs("config", exist_ok=True)
-        with open(os.path.join("config", "settings.yaml"), "w", encoding="utf-8") as f:
-            yaml.dump(self.settings, f, allow_unicode=True, default_flow_style=False)
+        # 기존 settings.yaml의 다른 섹션(ai, media, dedup, search 등)은 보존하고
+        # 위의 partial만 덮어써서 저장
+        from utils.settings_io import save_settings
+        save_settings(partial)
 
         self.destroy()
+
