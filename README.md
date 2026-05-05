@@ -64,7 +64,7 @@ python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
-
+```
 
 ## 초기 설정
 1. API 키 발급이 필요합니다.
