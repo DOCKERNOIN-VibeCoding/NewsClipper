@@ -1,9 +1,3 @@
-
-## 📄 2. README_EN.md (영문) — 전체 교체
-
-`README_EN.md` 파일도 동일하게 통째로 덮어쓰세요.
-
-```markdown
 > 🇰🇷 [한국어 버전](README.md)
 
 # 📰 NewsClipper — AI-Powered News Clipping & Media Monitoring
