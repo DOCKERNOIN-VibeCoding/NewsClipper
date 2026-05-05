@@ -97,12 +97,13 @@ python main.py
 - 🏷️ 자세한 내용은 docs/v2_development_plan.md 참고
 
 ## 변경 이력
-  v2.3 (2026-05-05) — HTML 리포트 듀얼 템플릿, Outlook/Word 메일 호환
-  v2.2.1 (2026-05-04) — settings.yaml 보존(deep merge), 503 재시도, 다이얼로그 안정화
-  v2.2 (2026-05-04) — HOT KEYWORDS Top 10 + 색상 바 차트
-  v2.0 (2026-05-03) — Gemini AI 통합 분석, 관련도/요약/엔티티/감성
-  v1.0 (2026-05) — Naver API + TF-IDF 기반 최초 릴리스
-
+```bash
+v2.3 (2026-05-05) — HTML 리포트 듀얼 템플릿, Outlook/Word 메일 호환
+v2.2.1 (2026-05-04) — settings.yaml 보존(deep merge), 503 재시도, 다이얼로그 안정화
+v2.2 (2026-05-04) — HOT KEYWORDS Top 10 + 색상 바 차트
+v2.0 (2026-05-03) — Gemini AI 통합 분석, 관련도/요약/엔티티/감성
+v1.0 (2026-05) — Naver API + TF-IDF 기반 최초 릴리스
+```
 
 ## 라이선스
 MIT License
