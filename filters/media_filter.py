@@ -4,12 +4,14 @@ import yaml
 import os
 from typing import List, Dict, Optional
 
+from utils.paths import resource_path
+
 class MediaFilter:
     """매체 도메인을 기반으로 티어를 판별하고 필터링"""
 
     def __init__(self, tiers_path: str = None):
         if tiers_path is None:
-            tiers_path = os.path.join("config", "media_tiers.yaml")
+            tiers_path = resource_path(os.path.join("config", "media_tiers.yaml"))
         
         self.tiers = {}       # {domain: {"name": ..., "tier": ...}}
         self._load_tiers(tiers_path)

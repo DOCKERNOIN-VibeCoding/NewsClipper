@@ -8,3 +8,12 @@ reports/
 config/settings.yaml
 .env
 *.zip
+logs/
+debug.log
+*.log
+
+config/settings.yaml.default
+
+# 로컬 백업 파일
+*.default
+*.bak

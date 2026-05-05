@@ -43,3 +43,40 @@ FONT_BODY_BOLD = (FONT_FAMILY, 16, "bold")
 FONT_SMALL = (FONT_FAMILY, 14)
 FONT_SMALL_BOLD = (FONT_FAMILY, 14, "bold")
 FONT_CAPTION = (FONT_FAMILY, 13)
+
+
+# ─────────────────────────────────────
+#  v2.0: AI 분석 결과 표시용 색상
+# ─────────────────────────────────────
+# 관련도 뱃지
+RELEVANCE_CORE_BG = "#10B981"      # 초록 (핵심)
+RELEVANCE_RELEVANT_BG = "#3B82F6"  # 파랑 (관련)
+RELEVANCE_PASSING_BG = "#F59E0B"   # 주황 (간접)
+RELEVANCE_IRRELEVANT_BG = "#9CA3AF"  # 회색 (무관, 보통은 표시 안함)
+
+# 감성 태그
+SENTIMENT_POSITIVE = "#10B981"
+SENTIMENT_NEUTRAL = "#6B7280"
+SENTIMENT_NEGATIVE = "#EF4444"
+
+# AI 요약 박스
+AI_SUMMARY_BG = "#F0F7FF"       # 아주 연한 하늘색
+AI_SUMMARY_BORDER = "#BFDBFE"
+AI_SUMMARY_TEXT = "#1E3A5F"
+
+# 엔티티 칩
+ENTITY_CHIP_BG = "#EEF2FF"
+ENTITY_CHIP_TEXT = "#4338CA"
+
+# Fallback(키워드 매칭) 표시
+FALLBACK_BADGE_BG = "#FEF3C7"
+FALLBACK_BADGE_TEXT = "#92400E"
+
+# ── HOT KEYWORDS (Phase 2-3) ──
+HOT_BAR_COMPANY = COBALT          # 자사 (파란색)
+HOT_BAR_COMPETITOR = ACCENT_ORANGE  # 경쟁사 (주황색)
+HOT_BAR_OTHER = "#9CA3AF"          # 기타 (회색)
+HOT_BAR_BG = "#F3F4F6"             # 바 배경 (연한 회색)
+HOT_CARD_BG = "#FFFBEB"            # 카드 배경 (살짝 노란기 — 강조)
+HOT_CARD_BORDER = "#FCD34D"        # 카드 테두리 (노랑)
+HOT_TITLE_COLOR = "#92400E"        # 제목 텍스트 (진한 갈색)
