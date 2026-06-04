@@ -11,10 +11,22 @@ from ui.main_window import MainWindow
 
 def setup_logging():
     """디버깅을 위한 로그 파일 설정.
-    logs/ 폴더에 날짜별 로그 파일 생성."""
-    os.makedirs("logs", exist_ok=True)
+    exe(또는 main.py)가 있는 폴더 안 logs/ 폴더에 날짜별 로그 파일 생성."""
+    import sys
+
+    # exe로 빌드된 경우와 파이썬으로 직접 실행한 경우 모두 처리
+    if getattr(sys, "frozen", False):
+        # PyInstaller로 만든 exe로 실행 중일 때: exe 파일이 있는 폴더
+        base_dir = os.path.dirname(sys.executable)
+    else:
+        # 파이썬으로 직접 실행할 때: main.py가 있는 폴더
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+    logs_dir = os.path.join(base_dir, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
     log_path = os.path.join(
-        "logs",
+        logs_dir,
         f"newsclipper_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
     )
 
@@ -71,28 +83,3 @@ import customtkinter as ctk
 from ui.main_window import MainWindow
 
 
-def main():
-    ctk.set_appearance_mode("light")
-
-    app = MainWindow()
-
-    # ── 메인 윈도우 숨기고 스플래시 먼저 표시 ──
-    app.withdraw()
-
-    from ui.splash import SplashScreen
-    splash_duration = 2500  # 2.5초
-
-    splash = SplashScreen(app, duration=splash_duration)
-
-    # 스플래시 종료 후 메인 윈도우 표시
-    def show_main():
-        app.deiconify()       # 메인 윈도우 표시
-        app.lift()            # 앞으로 가져오기
-        app.focus_force()     # 포커스
-
-    app.after(splash_duration + 200, show_main)
-    app.mainloop()
-
-
-if __name__ == "__main__":
-    main()
